@@ -19,8 +19,6 @@ local.properties
 google-services.json
 
 # Machine Learning / Python
-*.csv
-*.joblib
 __pycache__/
 
 # Node
