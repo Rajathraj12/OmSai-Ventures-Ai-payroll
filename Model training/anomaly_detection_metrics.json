@@ -1,0 +1,24 @@
+{
+    "training_records": 220,
+    "evaluation_records": 20,
+    "records_flagged": 1,
+    "percentage_flagged": 5.0,
+    "contamination_param": 0.03,
+    "features_used": [
+        "basic",
+        "gross",
+        "net",
+        "ded",
+        "lwp",
+        "paidDays",
+        "performance",
+        "festivalBonus",
+        "otherDed",
+        "groupInsurance",
+        "lwpDeduction",
+        "deduction_ratio",
+        "performance_ratio",
+        "net_salary_change_pct",
+        "lwp_ratio"
+    ]
+}

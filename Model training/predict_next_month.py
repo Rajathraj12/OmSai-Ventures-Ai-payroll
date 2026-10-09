@@ -1,9 +1,13 @@
 import pandas as pd
 import joblib
 
-def main():
+def get_prediction(model=None):
     # Load model
-    model = joblib.load('payroll_prediction_model.joblib')
+    try:
+        if model is None:
+            model = joblib.load('payroll_prediction_model.joblib')
+    except Exception as e:
+        return {"error": str(e)}
     
     # Load data
     df = pd.read_csv('monthly_payroll_totals.csv')
@@ -22,28 +26,45 @@ def main():
         next_month = 1
         next_year += 1
         
-    print(f"Forecasting for: {next_month}/{next_year}")
-    print(f"Based on actual data from: {last_month}/{last_year}")
-    
     # Prepare features
     features = ['employee_count', 'total_gross', 'total_deductions', 'total_net', 
                 'total_lwp', 'average_attendance', 'total_performance', 'total_festival_bonus']
     
     X_pred = last_month_data[features].copy()
-    # rename columns to match the training features (_lag1)
     X_pred.columns = [f'{feat}_lag1' for feat in features]
     
     # Predict using RF
-    rf_pred = model.predict(X_pred)[0]
+    rf_pred = float(model.predict(X_pred)[0])
     
     # Predict using Baseline (Naive)
-    baseline_pred = last_month_data['total_net'].iloc[0]
+    baseline_pred = float(last_month_data['total_net'].iloc[0])
     
-    print("\n--- Next Month Forecast (Prototype Estimates) ---")
-    print(f"Baseline (Naive) Forecast: {baseline_pred:.2f}")
-    print(f"Random Forest Forecast: {rf_pred:.2f}")
+    # Based on evaluation, Baseline is more accurate due to limited data
+    # We will return the baseline prediction as the preferred one
+    change_amount = baseline_pred - float(last_month_data['total_net'].iloc[0])
+    change_pct = 0.0 # Naive forecast implies no change
     
-    print("\nNote: These are prototype estimates based on very limited historical data.")
+    return {
+        "predictionMonth": next_month,
+        "predictionYear": next_year,
+        "predictedNetPayroll": baseline_pred,
+        "previousMonthNetPayroll": float(last_month_data['total_net'].iloc[0]),
+        "changeAmount": change_amount,
+        "changePercentage": change_pct,
+        "modelUsed": "Naive Baseline",
+        "forecastDisclaimer": "These are prototype estimates based on very limited historical data. Baseline is preferred over Random Forest due to overfitting on small sample size."
+    }
+
+def main():
+    res = get_prediction()
+    if "error" in res:
+        print("Error:", res["error"])
+    else:
+        print(f"Forecasting for: {res['predictionMonth']}/{res['predictionYear']}")
+        print(f"Based on actual data from previous month.")
+        print("\n--- Next Month Forecast (Prototype Estimates) ---")
+        print(f"Preferred Forecast ({res['modelUsed']}): {res['predictedNetPayroll']:.2f}")
+        print(f"\nNote: {res['forecastDisclaimer']}")
 
 if __name__ == '__main__':
     main()
