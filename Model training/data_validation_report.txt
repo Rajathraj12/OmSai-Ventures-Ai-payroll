@@ -1,0 +1,40 @@
+=== Data Validation Report ===
+Employees loaded: 20
+Salary slips loaded: 240
+
+--- Missing Values ---
+Employees missing values:
+festivalBonus    20
+otherDed         20
+remarks          20
+dtype: int64
+Slips missing values:
+remarks    234
+dtype: int64
+
+--- Employee Reference & Duplicate Validation ---
+Slips with unknown employee IDs: 0
+Duplicate employee IDs in records: 0
+Duplicate employee-month records in slips: 0
+Invalid payMonth values (not 1-12): 0
+
+--- Date Validation ---
+Salary slips dated before employee joining month: 0
+
+--- Payroll Formula Validation ---
+Gross discrepancies: 0
+Deduction discrepancies: 0
+Net discrepancies: 0
+
+--- Monthly Payroll Totals (Top 5 rows) ---
+   payYear  payMonth  employee_count  total_gross  total_deductions  total_net  total_lwp  average_attendance  total_performance  total_festival_bonus
+0     2025        10              20       302550          16148.39  286401.61         24             96.1285              21850                  7000
+1     2025        11              20       301350           9023.34  292326.66          8             98.6665              22150                  5000
+2     2025        12              20       296800          16940.31  279859.69         29             95.3225              22400                     0
+3     2026         1              20       296350          11351.61  284998.39         15             97.5805              21150                     0
+4     2026         2              20       297150          15028.57  282121.43         15             97.3225              21800                     0
+
+--- Remaining Data-Quality Concerns ---
+1. 'attendance' in slips is a percentage, not an absolute monetary value. It shouldn't be added to gross.
+2. 'lwp' is a day count, whereas 'lwpDeduction' is the monetary deduction. Both seem consistent.
+3. No major concerns were found during date and ID validation.

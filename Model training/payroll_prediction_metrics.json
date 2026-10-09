@@ -1,0 +1,10 @@
+{
+    "evaluation_period": "9/2026",
+    "baseline_mae": 212.5800000000163,
+    "baseline_rmse": 212.5800000000163,
+    "baseline_mape": 0.0755463946835411,
+    "rf_mae": 3341.6432000000495,
+    "rf_rmse": 3341.6432000000495,
+    "rf_mape": 1.187548669106951,
+    "limitations": "The dataset has only 12 monthly records, yielding 11 training samples. Machine learning models like Random Forest require significantly more data to capture complex patterns and avoid overfitting. The Naive Baseline is often more reliable in such extremely data-scarce environments."
+}
