@@ -55,7 +55,15 @@ data class DashboardState(
     val employees: List<Employee> = emptyList(),
     val activeEmployeeId: String? = null,
     val activeTab: String = "payroll", // "payroll", "offerLetter", "history"
-    val error: String? = null
+    val error: String? = null,
+    
+    // AI Integration States
+    val aiIsLoading: Boolean = false,
+    val prediction: com.example.omsaiventures.api.PredictionResponse? = null,
+    val anomalies: List<com.example.omsaiventures.api.AnomalyItem> = emptyList(),
+    val aiError: String? = null,
+    
+    val successMessage: String? = null
 )
 
 class DashboardViewModel : ViewModel() {
@@ -66,6 +74,40 @@ class DashboardViewModel : ViewModel() {
 
     init {
         fetchData()
+        fetchAiInsights()
+    }
+
+    fun fetchAiInsights() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(aiIsLoading = true, aiError = null)
+            try {
+                // Check health first to see if models are loaded
+                val health = com.example.omsaiventures.api.ApiClient.apiService.getHealth()
+                if (health.status != "ok") {
+                    _state.value = _state.value.copy(
+                        aiIsLoading = false,
+                        aiError = "AI Services are currently unavailable."
+                    )
+                    return@launch
+                }
+
+                // Fetch Prediction & Anomalies concurrently or sequentially
+                val prediction = com.example.omsaiventures.api.ApiClient.apiService.getPayrollPrediction()
+                val anomalyResponse = com.example.omsaiventures.api.ApiClient.apiService.getAnomalies()
+
+                _state.value = _state.value.copy(
+                    aiIsLoading = false,
+                    prediction = prediction,
+                    anomalies = anomalyResponse.anomalies,
+                    aiError = null
+                )
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    aiIsLoading = false,
+                    aiError = "Failed to connect to AI server: ${e.localizedMessage ?: "Unknown error"}"
+                )
+            }
+        }
     }
 
     private fun fetchData() {
@@ -180,11 +222,50 @@ class DashboardViewModel : ViewModel() {
                 val currentList = _state.value.employees.filter { it.id != id }
                 _state.value = _state.value.copy(
                     employees = currentList,
-                    activeEmployeeId = currentList.firstOrNull()?.id
+                    activeEmployeeId = currentList.firstOrNull()?.id,
+                    successMessage = "Employee deleted successfully."
                 )
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = "Failed to delete employee: ${e.message}")
             }
         }
+    }
+
+    fun saveSlipToHistory(employee: Employee) {
+        viewModelScope.launch {
+            try {
+                val slipData = hashMapOf(
+                    "empId" to employee.id,
+                    "empName" to employee.name,
+                    "payMonth" to employee.payMonth,
+                    "payYear" to employee.payYear,
+                    "timestamp" to java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+                        .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+                        .format(java.util.Date()),
+                    "basic" to employee.basic,
+                    "attendance" to employee.attendance,
+                    "performance" to employee.performance,
+                    "festivalBonus" to employee.festivalBonus,
+                    "dq" to employee.dq,
+                    "otherDed" to employee.otherDed,
+                    "groupInsurance" to employee.groupInsurance,
+                    "lwp" to employee.lwp,
+                    "paidDays" to employee.paidDays,
+                    "lwpDeduction" to employee.lwpDeduction,
+                    "gross" to employee.gross,
+                    "ded" to employee.ded,
+                    "net" to employee.net,
+                    "remarks" to employee.remarks
+                )
+                db.collection("slips").add(slipData).await()
+                _state.value = _state.value.copy(successMessage = "Payslip saved to history!")
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(error = "Failed to save slip to history: ${e.message}")
+            }
+        }
+    }
+
+    fun clearMessages() {
+        _state.value = _state.value.copy(error = null, successMessage = null, aiError = null)
     }
 }
