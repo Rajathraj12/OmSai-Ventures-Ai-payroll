@@ -49,10 +49,23 @@ data class Employee(
     val net get() = gross - ded
 }
 
+data class SalarySlip(
+    val id: String = "",
+    val empId: String = "",
+    val empName: String = "",
+    val payMonth: Int = 8,
+    val payYear: Int = 2026,
+    val timestamp: String = "",
+    val gross: Double = 0.0,
+    val ded: Double = 0.0,
+    val net: Double = 0.0
+)
+
 data class DashboardState(
     val isLoading: Boolean = true,
     val company: CompanyProfile = CompanyProfile(),
     val employees: List<Employee> = emptyList(),
+    val historicalSlips: List<SalarySlip> = emptyList(),
     val activeEmployeeId: String? = null,
     val activeTab: String = "payroll", // "payroll", "offerLetter", "history"
     val error: String? = null,
@@ -159,10 +172,31 @@ class DashboardViewModel : ViewModel() {
                     }
                 }
 
+                // Fetch Historical Slips
+                val slipsSnapshot = db.collection("slips").get().await()
+                val slipsList = slipsSnapshot.documents.mapNotNull { doc ->
+                    try {
+                        SalarySlip(
+                            id = doc.id,
+                            empId = doc.getString("empId") ?: "",
+                            empName = doc.getString("empName") ?: "",
+                            payMonth = (doc.get("payMonth") as? Number)?.toInt() ?: 8,
+                            payYear = (doc.get("payYear") as? Number)?.toInt() ?: 2026,
+                            timestamp = doc.getString("timestamp") ?: "",
+                            gross = (doc.get("gross") as? Number)?.toDouble() ?: 0.0,
+                            ded = (doc.get("ded") as? Number)?.toDouble() ?: 0.0,
+                            net = (doc.get("net") as? Number)?.toDouble() ?: 0.0
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
+                }.sortedByDescending { it.timestamp } // Show newest first
+
                 _state.value = _state.value.copy(
                     isLoading = false,
                     company = company,
                     employees = employeesList,
+                    historicalSlips = slipsList,
                     activeEmployeeId = employeesList.firstOrNull()?.id // Select first by default
                 )
             } catch (e: Exception) {
@@ -257,10 +291,44 @@ class DashboardViewModel : ViewModel() {
                     "net" to employee.net,
                     "remarks" to employee.remarks
                 )
-                db.collection("slips").add(slipData).await()
-                _state.value = _state.value.copy(successMessage = "Payslip saved to history!")
+                val docRef = db.collection("slips").add(slipData).await()
+                
+                // Add to local state so history tab updates immediately
+                val newSlip = SalarySlip(
+                    id = docRef.id,
+                    empId = employee.id,
+                    empName = employee.name,
+                    payMonth = employee.payMonth,
+                    payYear = employee.payYear,
+                    timestamp = slipData["timestamp"] as String,
+                    gross = employee.gross,
+                    ded = employee.ded,
+                    net = employee.net
+                )
+                val currentHistory = _state.value.historicalSlips.toMutableList()
+                currentHistory.add(0, newSlip) // add to top
+                
+                _state.value = _state.value.copy(
+                    historicalSlips = currentHistory,
+                    successMessage = "Payslip saved to history!"
+                )
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = "Failed to save slip to history: ${e.message}")
+            }
+        }
+    }
+
+    fun deleteHistoricalSlip(id: String) {
+        viewModelScope.launch {
+            try {
+                db.collection("slips").document(id).delete().await()
+                val currentHistory = _state.value.historicalSlips.filter { it.id != id }
+                _state.value = _state.value.copy(
+                    historicalSlips = currentHistory,
+                    successMessage = "Payslip deleted from history."
+                )
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(error = "Failed to delete slip: ${e.message}")
             }
         }
     }

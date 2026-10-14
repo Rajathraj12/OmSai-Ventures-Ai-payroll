@@ -13,6 +13,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -136,6 +142,11 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
                     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                         OfferLetterScreen()
                     }
+                } else if (state.activeTab == "history") {
+                    HistoryScreen(
+                        state = state,
+                        onDeleteSlip = { id -> viewModel.deleteHistoricalSlip(id) }
+                    )
                 } else {
                     // Placeholder for history tab
                     Box(
@@ -357,7 +368,7 @@ fun EmployeeRegister(
                 HorizontalDivider(color = GlassBorder.copy(alpha = 0.5f), modifier = Modifier.padding(horizontal = 16.dp))
             }
         }
-        
+
         // Add Button
         Box(
             modifier = Modifier
@@ -629,8 +640,8 @@ fun PayslipDetail(
 @Composable
 fun InfoItem(label: String, value: String, modifier: Modifier = Modifier) {
     Column(modifier = modifier) {
-        Text(label.uppercase(), color = InkSoft, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-        Text(value.ifEmpty { "—" }, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 2.dp))
+        Text(label, color = InkSoft, fontSize = 9.sp)
+        Text(value.ifEmpty { "—" }, color = Ink, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 2.dp))
     }
 }
 
