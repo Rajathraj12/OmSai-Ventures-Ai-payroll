@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.omsaiventures.ui.theme.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(viewModel: DashboardViewModel) {
     val state by viewModel.state.collectAsState()
@@ -59,106 +60,151 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(PaperDim) // Background color matching the web body
-    ) {
-        // 1. Web-Style Navigation Bar (Masthead)
-        Masthead(
-            employeeCount = state.employees.size,
-            activeTab = state.activeTab,
-            onTabChange = { viewModel.setActiveTab(it) }
-        )
-
-        // Main Scrollable Area
-        Column(
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(id = com.example.omsaiventures.R.drawable.logo),
+                            contentDescription = "Logo",
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color.White)
+                                .padding(2.dp),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("OmSai", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("Ventures", color = Brass, fontStyle = FontStyle.Italic)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { /* Handle Logout */ }) {
+                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Logout", tint = Color.White)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = LedgerDark)
+            )
+        },
+        bottomBar = {
+            NavigationBar(containerColor = Color.White) {
+                NavigationBarItem(
+                    selected = state.activeTab == "dashboard",
+                    onClick = { viewModel.setActiveTab("dashboard") },
+                    icon = { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") },
+                    label = { Text("Dashboard", fontSize = 10.sp) },
+                    colors = NavigationBarItemDefaults.colors(selectedIconColor = LedgerDark, selectedTextColor = LedgerDark, indicatorColor = Brass.copy(alpha=0.2f))
+                )
+                NavigationBarItem(
+                    selected = state.activeTab == "payroll",
+                    onClick = { viewModel.setActiveTab("payroll") },
+                    icon = { Icon(Icons.Default.People, contentDescription = "Payroll") },
+                    label = { Text("Payroll", fontSize = 10.sp) },
+                    colors = NavigationBarItemDefaults.colors(selectedIconColor = LedgerDark, selectedTextColor = LedgerDark, indicatorColor = Brass.copy(alpha=0.2f))
+                )
+                NavigationBarItem(
+                    selected = state.activeTab == "offerLetter",
+                    onClick = { viewModel.setActiveTab("offerLetter") },
+                    icon = { Icon(Icons.Default.Description, contentDescription = "Offers") },
+                    label = { Text("Offers", fontSize = 10.sp) },
+                    colors = NavigationBarItemDefaults.colors(selectedIconColor = LedgerDark, selectedTextColor = LedgerDark, indicatorColor = Brass.copy(alpha=0.2f))
+                )
+                NavigationBarItem(
+                    selected = state.activeTab == "history",
+                    onClick = { viewModel.setActiveTab("history") },
+                    icon = { Icon(Icons.Default.History, contentDescription = "History") },
+                    label = { Text("History", fontSize = 10.sp) },
+                    colors = NavigationBarItemDefaults.colors(selectedIconColor = LedgerDark, selectedTextColor = LedgerDark, indicatorColor = Brass.copy(alpha=0.2f))
+                )
+            }
+        },
+        floatingActionButton = {
+            if (state.activeTab == "payroll") {
+                FloatingActionButton(
+                    onClick = {
+                        employeeToEdit = null
+                        showEmployeeModal = true
+                    },
+                    containerColor = LedgerDark,
+                    contentColor = Color.White
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Employee")
+                }
+            }
+        },
+        containerColor = PaperDim
+    ) { paddingValues ->
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .padding(paddingValues)
         ) {
             if (state.isLoading) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(300.dp),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Brass)
                 }
             } else {
-                if (state.activeTab == "payroll") {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
-                        item {
-                            // Mobile Layout: Show Employee Roster list first
-                            EmployeeRegister(
-                                employees = state.employees,
-                                activeId = state.activeEmployeeId,
-                                onEmployeeSelected = { viewModel.setActiveEmployee(it) },
-                                onAddClicked = {
-                                    employeeToEdit = null
-                                    showEmployeeModal = true
-                                }
-                            )
+                when (state.activeTab) {
+                    "dashboard" -> {
+                        Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
+                            DashboardTabContent(state = state, onRefresh = { viewModel.fetchAiInsights() })
                         }
-
-                        item {
-                            // Then show the active Employee's Payslip
-                            val activeEmployee = state.employees.find { it.id == state.activeEmployeeId }
-                            if (activeEmployee != null) {
-                                PayslipDetail(
-                                    employee = activeEmployee,
-                                    company = state.company,
-                                    onEditClicked = {
-                                        employeeToEdit = activeEmployee
+                    }
+                    "payroll" -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(24.dp)
+                        ) {
+                            item {
+                                EmployeeRegister(
+                                    employees = state.employees,
+                                    activeId = state.activeEmployeeId,
+                                    onEmployeeSelected = { viewModel.setActiveEmployee(it) },
+                                    onAddClicked = {
+                                        employeeToEdit = null
                                         showEmployeeModal = true
-                                    },
-                                    onSaveToHistoryClicked = {
-                                        viewModel.saveSlipToHistory(activeEmployee)
-                                    },
-                                    onPrintClicked = {
-                                        com.example.omsaiventures.utils.PdfGenerator.generatePayslipPdf(
-                                            context = context,
-                                            employee = activeEmployee,
-                                            company = state.company
-                                        )
-                                    },
-                                    onDeleteClicked = {
-                                        employeeToDelete = activeEmployee.id
                                     }
                                 )
                             }
+                            item {
+                                val activeEmployee = state.employees.find { it.id == state.activeEmployeeId }
+                                if (activeEmployee != null) {
+                                    PayslipDetail(
+                                        employee = activeEmployee,
+                                        company = state.company,
+                                        onEditClicked = {
+                                            employeeToEdit = activeEmployee
+                                            showEmployeeModal = true
+                                        },
+                                        onSaveToHistoryClicked = {
+                                            viewModel.saveSlipToHistory(activeEmployee)
+                                        },
+                                        onPrintClicked = {
+                                            com.example.omsaiventures.utils.PdfGenerator.generatePayslipPdf(
+                                                context = context,
+                                                employee = activeEmployee,
+                                                company = state.company
+                                            )
+                                        },
+                                        onDeleteClicked = {
+                                            employeeToDelete = activeEmployee.id
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
-                } else if (state.activeTab == "dashboard") {
-                    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                        DashboardTabContent(state = state, onRefresh = { viewModel.fetchAiInsights() })
+                    "offerLetter" -> {
+                        Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
+                            OfferLetterScreen()
+                        }
                     }
-                } else if (state.activeTab == "offerLetter") {
-                    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                        OfferLetterScreen()
-                    }
-                } else if (state.activeTab == "history") {
-                    HistoryScreen(
-                        state = state,
-                        onDeleteSlip = { id -> viewModel.deleteHistoricalSlip(id) }
-                    )
-                } else {
-                    // Placeholder for history tab
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(300.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "${state.activeTab} coming soon...",
-                            color = InkSoft,
-                            fontSize = 18.sp
+                    "history" -> {
+                        HistoryScreen(
+                            state = state,
+                            onDeleteSlip = { id -> viewModel.deleteHistoricalSlip(id) }
                         )
                     }
                 }
