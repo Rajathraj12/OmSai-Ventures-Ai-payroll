@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -204,7 +205,9 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
                     "history" -> {
                         HistoryScreen(
                             state = state,
-                            onDeleteSlip = { id -> viewModel.deleteHistoricalSlip(id) }
+                            context = context,
+                            onDeleteSlip = { id -> viewModel.deleteHistoricalSlip(id) },
+                            onSeedSampleSlips = { viewModel.seedSampleSlips() }
                         )
                     }
                 }
@@ -244,97 +247,6 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
 // ----------------------------------------------------
 // UI COMPONENTS
 // ----------------------------------------------------
-
-@Composable
-fun Masthead(employeeCount: Int, activeTab: String, onTabChange: (String) -> Unit) {
-    // Top Bar (Deep Navy with Brass bottom border)
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Ledger)
-                .padding(horizontal = 16.dp, vertical = 16.dp)
-        ) {
-            // Row 1: Logo, Title, and Logout Button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Logo placeholder + Title
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    androidx.compose.foundation.Image(
-                        painter = androidx.compose.ui.res.painterResource(id = com.example.omsaiventures.R.drawable.logo),
-                        contentDescription = "Logo",
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color.White)
-                            .padding(4.dp),
-                        contentScale = androidx.compose.ui.layout.ContentScale.Fit
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(text = "OmSai ", color = Paper, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                    Text(text = "Ventures", color = Brass, fontSize = 24.sp, fontStyle = FontStyle.Italic)
-                }
-
-                // Logout Button
-                Box(
-                    modifier = Modifier
-                        .border(1.dp, Paper.copy(alpha = 0.2f), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(text = "Logout", color = Paper.copy(alpha = 0.8f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Row 2: Tabs (Dashboard, Payroll Register, Offer Letter, History)
-            Row(
-                modifier = Modifier
-                    .background(Paper.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
-                    .padding(4.dp)
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                MastheadTab("Dashboard", activeTab == "dashboard") { onTabChange("dashboard") }
-                MastheadTab("Payroll Register", activeTab == "payroll") { onTabChange("payroll") }
-                MastheadTab("Offer Letters", activeTab == "offerLetter") { onTabChange("offerLetter") }
-                MastheadTab("History", activeTab == "history") { onTabChange("history") }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "$employeeCount EMPLOYEES ON FILE",
-                color = Paper.copy(alpha = 0.55f),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
-        }
-        HorizontalDivider(color = Brass, thickness = 3.dp)
-    }
-}
-
-@Composable
-fun MastheadTab(title: String, isActive: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(if (isActive) Brass else Color.Transparent)
-            .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = title,
-            color = if (isActive) Color.White else Paper.copy(alpha = 0.6f),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-    }
-}
 
 @Composable
 fun EmployeeRegister(

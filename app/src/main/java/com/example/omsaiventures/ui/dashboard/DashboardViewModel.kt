@@ -123,17 +123,17 @@ class DashboardViewModel : ViewModel() {
         }
     }
 
-    private fun fetchData() {
+    fun fetchData() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             try {
                 // Fetch Company Profile
                 val companySnapshot = db.collection("company").document("profile").get().await()
                 val company = CompanyProfile(
-                    name = companySnapshot.getString("name") ?: "",
-                    sub = companySnapshot.getString("sub") ?: "",
-                    contact = companySnapshot.getString("contact") ?: "",
-                    gst = companySnapshot.getString("gst") ?: ""
+                    name = companySnapshot.getString("name")?.takeIf { it.isNotBlank() } ?: "OMSAI VENTURES",
+                    sub = companySnapshot.getString("sub")?.takeIf { it.isNotBlank() } ?: "Registered Office: First Floor, 65, Shreya Park, Near Ravi Nagar, Gokul Road, Hubli – 580030",
+                    contact = companySnapshot.getString("contact")?.takeIf { it.isNotBlank() } ?: "Email: omsaiventures9@gmail.com\nPhone: 8073874620 / 9739316724",
+                    gst = companySnapshot.getString("gst")?.takeIf { it.isNotBlank() } ?: "29AAKF01084E1Z6"
                 )
 
                 // Fetch Employees safely handling Number formats
@@ -173,21 +173,57 @@ class DashboardViewModel : ViewModel() {
                 }
 
                 // Fetch Historical Slips
-                val slipsSnapshot = db.collection("slips").get().await()
+                // Note: The collection name in Firebase is "salary_slips" based on the screenshot provided
+                val slipsSnapshot = db.collection("salary_slips").get().await()
                 val slipsList = slipsSnapshot.documents.mapNotNull { doc ->
                     try {
+                        val rawTimestamp = doc.get("timestamp")
+                        val timestampStr = when (rawTimestamp) {
+                            is String -> rawTimestamp
+                            is com.google.firebase.Timestamp -> {
+                                java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+                                    .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+                                    .format(rawTimestamp.toDate())
+                            }
+                            is java.util.Date -> {
+                                java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+                                    .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+                                    .format(rawTimestamp)
+                            }
+                            else -> rawTimestamp?.toString() ?: ""
+                        }
+
+                        fun parseDouble(field: String): Double {
+                            val v = doc.get(field)
+                            return when (v) {
+                                is Number -> v.toDouble()
+                                is String -> v.toDoubleOrNull() ?: 0.0
+                                else -> 0.0
+                            }
+                        }
+
+                        fun parseInt(field: String, default: Int): Int {
+                            val v = doc.get(field)
+                            return when (v) {
+                                is Number -> v.toInt()
+                                is String -> v.toIntOrNull() ?: default
+                                else -> default
+                            }
+                        }
+
                         SalarySlip(
                             id = doc.id,
-                            empId = doc.getString("empId") ?: "",
-                            empName = doc.getString("empName") ?: "",
-                            payMonth = (doc.get("payMonth") as? Number)?.toInt() ?: 8,
-                            payYear = (doc.get("payYear") as? Number)?.toInt() ?: 2026,
-                            timestamp = doc.getString("timestamp") ?: "",
-                            gross = (doc.get("gross") as? Number)?.toDouble() ?: 0.0,
-                            ded = (doc.get("ded") as? Number)?.toDouble() ?: 0.0,
-                            net = (doc.get("net") as? Number)?.toDouble() ?: 0.0
+                            empId = doc.getString("empId") ?: doc.getString("empid") ?: "",
+                            empName = doc.getString("empName") ?: doc.getString("name") ?: "Unknown Employee",
+                            payMonth = parseInt("payMonth", 8),
+                            payYear = parseInt("payYear", 2026),
+                            timestamp = timestampStr,
+                            gross = parseDouble("gross"),
+                            ded = parseDouble("ded"),
+                            net = parseDouble("net")
                         )
                     } catch (e: Exception) {
+                        android.util.Log.e("DashboardViewModel", "Failed to parse slip ${doc.id}", e)
                         null
                     }
                 }.sortedByDescending { it.timestamp } // Show newest first
@@ -291,7 +327,7 @@ class DashboardViewModel : ViewModel() {
                     "net" to employee.net,
                     "remarks" to employee.remarks
                 )
-                val docRef = db.collection("slips").add(slipData).await()
+                val docRef = db.collection("salary_slips").add(slipData).await()
                 
                 // Add to local state so history tab updates immediately
                 val newSlip = SalarySlip(
@@ -321,7 +357,7 @@ class DashboardViewModel : ViewModel() {
     fun deleteHistoricalSlip(id: String) {
         viewModelScope.launch {
             try {
-                db.collection("slips").document(id).delete().await()
+                db.collection("salary_slips").document(id).delete().await()
                 val currentHistory = _state.value.historicalSlips.filter { it.id != id }
                 _state.value = _state.value.copy(
                     historicalSlips = currentHistory,
@@ -329,6 +365,83 @@ class DashboardViewModel : ViewModel() {
                 )
             } catch (e: Exception) {
                 _state.value = _state.value.copy(error = "Failed to delete slip: ${e.message}")
+            }
+        }
+    }
+
+    fun seedSampleSlips() {
+        viewModelScope.launch {
+            try {
+                _state.value = _state.value.copy(isLoading = true)
+                val targetEmployees = if (_state.value.employees.isNotEmpty()) {
+                    _state.value.employees
+                } else {
+                    listOf(
+                        Employee(id = "E001", name = "Rahul Sharma", role = "Store Manager", basic = 25000.0, attendance = 1000.0, performance = 2000.0, payMonth = 9, payYear = 2026),
+                        Employee(id = "E002", name = "Priya Desai", role = "Cashier", basic = 18000.0, attendance = 1000.0, performance = 500.0, festivalBonus = 1000.0, payMonth = 8, payYear = 2026),
+                        Employee(id = "E003", name = "Amit Kumar", role = "Delivery Executive", basic = 15000.0, attendance = 500.0, lwp = 2, payMonth = 7, payYear = 2026)
+                    )
+                }
+
+                val newSlips = mutableListOf<SalarySlip>()
+                val months = listOf(9, 8, 7) // September, August, July
+                val calendar = java.util.Calendar.getInstance()
+
+                for ((index, emp) in targetEmployees.withIndex()) {
+                    val monthIdx = months.getOrElse(index % months.size) { 9 }
+                    calendar.set(2026, monthIdx, 5 + (index * 2), 10, 30, 0)
+                    val timestampStr = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+                        .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+                        .format(calendar.time)
+
+                    val slipData = hashMapOf(
+                        "empId" to emp.id,
+                        "empName" to emp.name,
+                        "payMonth" to monthIdx,
+                        "payYear" to 2026,
+                        "timestamp" to timestampStr,
+                        "basic" to emp.basic,
+                        "attendance" to emp.attendance,
+                        "performance" to emp.performance,
+                        "festivalBonus" to emp.festivalBonus,
+                        "dq" to emp.dq,
+                        "otherDed" to emp.otherDed,
+                        "groupInsurance" to emp.groupInsurance,
+                        "lwp" to emp.lwp,
+                        "paidDays" to emp.paidDays,
+                        "lwpDeduction" to emp.lwpDeduction,
+                        "gross" to emp.gross,
+                        "ded" to emp.ded,
+                        "net" to emp.net,
+                        "remarks" to (emp.remarks.ifBlank { "Monthly salary slip" })
+                    )
+                    val docRef = db.collection("slips").add(slipData).await()
+                    newSlips.add(
+                        SalarySlip(
+                            id = docRef.id,
+                            empId = emp.id,
+                            empName = emp.name,
+                            payMonth = monthIdx,
+                            payYear = 2026,
+                            timestamp = timestampStr,
+                            gross = emp.gross,
+                            ded = emp.ded,
+                            net = emp.net
+                        )
+                    )
+                }
+
+                val updatedHistory = (newSlips + _state.value.historicalSlips).sortedByDescending { it.timestamp }
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    historicalSlips = updatedHistory,
+                    successMessage = "Sample historical slips created!"
+                )
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    error = "Failed to create sample slips: ${e.message}"
+                )
             }
         }
     }

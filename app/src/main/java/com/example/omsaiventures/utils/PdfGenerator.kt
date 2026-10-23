@@ -72,91 +72,99 @@ object PdfGenerator {
         // Paints
         val paintTitle = Paint().apply {
             color = Color.parseColor("#16243A") // LedgerDark
-            textSize = 24f
+            textSize = 20f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
         val paintSub = Paint().apply {
             color = Color.parseColor("#6B7686") // InkSoft
-            textSize = 10f
+            textSize = 9f
         }
         val paintHeader = Paint().apply {
             color = Color.parseColor("#16243A")
-            textSize = 16f
+            textSize = 14f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             textAlign = Paint.Align.CENTER
         }
         val paintLabel = Paint().apply {
             color = Color.parseColor("#6B7686")
             textSize = 10f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         }
         val paintValue = Paint().apply {
-            color = Color.BLACK
-            textSize = 12f
+            color = Color.parseColor("#16243A")
+            textSize = 10f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
+        val paintValueRight = Paint(paintValue).apply { textAlign = Paint.Align.RIGHT }
         val paintBorder = Paint().apply {
             color = Color.parseColor("#DDE3EA") // GlassBorder
             strokeWidth = 1f
             style = Paint.Style.STROKE
         }
-        val paintFillDark = Paint().apply {
-            color = Color.parseColor("#0F2438") // Ledger
+        val paintDashed = Paint().apply {
+            color = Color.parseColor("#DDE3EA") // GlassBorder
+            strokeWidth = 1f
+            style = Paint.Style.STROKE
+            pathEffect = android.graphics.DashPathEffect(floatArrayOf(5f, 5f), 0f)
+        }
+        val paintThickLine = Paint().apply {
+            color = Color.parseColor("#16243A")
+            strokeWidth = 2f
+            style = Paint.Style.STROKE
+        }
+        val paintFillGray = Paint().apply {
+            color = Color.parseColor("#EEF1F5") // PaperDim
+            style = Paint.Style.FILL
+        }
+        val paintFillLightGray = Paint().apply {
+            color = Color.parseColor("#F9F9F9") // Very faint gray for amount boxes
+            style = Paint.Style.FILL
+        }
+        val paintFillDarkGray = Paint().apply {
+            color = Color.parseColor("#DCDFE4") // Net Pay bar
             style = Paint.Style.FILL
         }
 
         var yPos = 40f
         val margin = 40f
-        
-        // Load bitmap instead of drawable directly to ensure it renders on PDF Canvas
+
+        // Draw the Logo
         val bitmap = android.graphics.BitmapFactory.decodeResource(context.resources, com.example.omsaiventures.R.drawable.logo)
         if (bitmap != null) {
             val scaledBitmap = android.graphics.Bitmap.createScaledBitmap(bitmap, 60, 60, true)
-            canvas.drawBitmap(scaledBitmap, margin, yPos, null)
+            // Logo background and border
+            canvas.drawRoundRect(margin, yPos, margin + 70f, yPos + 70f, 8f, 8f, paintFillGray)
+            canvas.drawBitmap(scaledBitmap, margin + 5f, yPos + 5f, null)
+            canvas.drawRoundRect(margin, yPos, margin + 70f, yPos + 70f, 8f, 8f, paintBorder)
         }
 
-        val textStartX = margin + 80f // Offset for text next to logo
-        
+        val textStartX = margin + 90f // Offset for text next to logo
+
         // Draw the Month/Year box on the right
-        val boxWidth = 120f
-        val boxHeight = 60f
+        val boxWidth = 100f
+        val boxHeight = 70f
         val boxLeft = pageInfo.pageWidth - margin - boxWidth
         val boxRight = pageInfo.pageWidth - margin
-        
-        canvas.drawRoundRect(
-            boxLeft, 
-            yPos, 
-            boxRight, 
-            yPos + boxHeight, 
-            8f, 8f, 
-            Paint().apply { color = Color.parseColor("#EEF1F5") } // PaperDim
-        )
-        canvas.drawRoundRect(
-            boxLeft, 
-            yPos, 
-            boxRight, 
-            yPos + boxHeight, 
-            8f, 8f, 
-            paintBorder
-        )
+
+        canvas.drawRoundRect(boxLeft, yPos, boxRight, yPos + boxHeight, 8f, 8f, paintFillGray)
+        canvas.drawRoundRect(boxLeft, yPos, boxRight, yPos + boxHeight, 8f, 8f, paintBorder)
 
         val months = listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
         val monthStr = months.getOrNull(employee.payMonth) ?: "Unknown"
-        
-        val paintBoxText = Paint(paintValue).apply { textAlign = Paint.Align.CENTER }
-        val paintBoxSub = Paint(paintSub).apply { textAlign = Paint.Align.CENTER; textSize = 8f }
-        
-        val boxCenterX = boxLeft + (boxWidth / 2f)
-        canvas.drawText(monthStr, boxCenterX, yPos + 20f, paintBoxText)
-        canvas.drawText("${employee.payYear}", boxCenterX, yPos + 35f, paintBoxText.apply { typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) })
-        canvas.drawText("Issued 09 Oct 2026", boxCenterX, yPos + 50f, paintBoxSub)
 
+        val paintBoxText = Paint(paintValue).apply { textAlign = Paint.Align.CENTER; textSize = 11f }
+        val paintBoxSub = Paint(paintSub).apply { textAlign = Paint.Align.CENTER; textSize = 8f }
+
+        val boxCenterX = boxLeft + (boxWidth / 2f)
+        canvas.drawText(monthStr, boxCenterX, yPos + 25f, paintBoxText)
+        canvas.drawText("${employee.payYear}", boxCenterX, yPos + 40f, paintBoxText.apply { textSize = 12f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) })
+        canvas.drawText("Issued 24 Oct", boxCenterX, yPos + 55f, paintBoxSub)
+        canvas.drawText("2026", boxCenterX, yPos + 65f, paintBoxSub)
 
         // Company Details (Center Column)
         canvas.drawText(company.name, textStartX, yPos + 15f, paintTitle)
         var currentY = yPos + 30f
-        
-        // Handle word wrap for Address Sub (split by commas or newlines if too long)
+
         val maxTextWidth = boxLeft - textStartX - 20f
         val addressWords = company.sub.replace("\n", ", ").split(" ")
         var line = ""
@@ -165,121 +173,143 @@ object PdfGenerator {
                 line += "$word "
             } else {
                 canvas.drawText(line.trim(), textStartX, currentY, paintSub)
-                currentY += 15f
+                currentY += 12f
                 line = "$word "
             }
         }
         if (line.isNotEmpty()) canvas.drawText(line.trim(), textStartX, currentY, paintSub)
-        currentY += 15f
+        currentY += 12f
+        canvas.drawText(company.contact.replace("\n", "   Phone: "), textStartX, currentY, paintSub)
+        currentY += 12f
+        canvas.drawText("GSTIN: ${company.gst}", textStartX, currentY, paintLabel)
+
+        yPos = maxOf(currentY, yPos + boxHeight) + 20f
         
-        // Handle contact wrapping
-        canvas.drawText(company.contact.replace("\n", " • "), textStartX, currentY, paintSub)
-        currentY += 15f
-        canvas.drawText(company.gst, textStartX, currentY, paintLabel)
-        
-        yPos = maxOf(currentY, yPos + boxHeight) + 30f
         canvas.drawLine(margin, yPos, pageInfo.pageWidth - margin, yPos, paintBorder)
         
-        yPos += 30f
+        yPos += 20f
         canvas.drawText("PAY SLIP", pageInfo.pageWidth / 2f, yPos, paintHeader)
-
-        yPos += 40f
+        yPos += 10f
         
-        // Employee Info Grid Helper
+        canvas.drawLine(margin, yPos, pageInfo.pageWidth - margin, yPos, paintBorder)
+
+        yPos += 25f
+
+        // Employee Info Grid
+        val midPoint = pageInfo.pageWidth / 2f
+        val col1Left = margin
+        val col1Right = midPoint - 15f
+        val col2Left = midPoint + 15f
+        val col2Right = pageInfo.pageWidth - margin
+
         fun drawInfoRow(k1: String, v1: String, k2: String, v2: String, y: Float) {
-            val col1 = margin
-            val col2 = margin + 250f
-            canvas.drawText(k1.uppercase(), col1, y, paintLabel)
-            canvas.drawText(v1.ifEmpty { "—" }, col1, y + 15f, paintValue)
+            canvas.drawText(k1, col1Left, y, paintLabel)
             
-            canvas.drawText(k2.uppercase(), col2, y, paintLabel)
-            canvas.drawText(v2.ifEmpty { "—" }, col2, y + 15f, paintValue)
+            // basic wrapping for long values
+            if (paintValueRight.measureText(v1) > 110f && v1.contains(" ")) {
+                val parts = v1.split(" ")
+                val mid = parts.size / 2
+                canvas.drawText(parts.take(mid).joinToString(" "), col1Right, y - 6f, paintValueRight)
+                canvas.drawText(parts.drop(mid).joinToString(" "), col1Right, y + 6f, paintValueRight)
+            } else {
+                canvas.drawText(v1.ifEmpty { "—" }, col1Right, y, paintValueRight)
+            }
+
+            canvas.drawText(k2, col2Left, y, paintLabel)
+            canvas.drawText(v2.ifEmpty { "—" }, col2Right, y, paintValueRight)
         }
 
-        drawInfoRow("Employee Name", employee.name, "Emp ID", employee.empid, yPos)
-        yPos += 40f
-        drawInfoRow("Designation", employee.role, "Date of Joining", employee.doj, yPos)
-        yPos += 40f
-        drawInfoRow("Deputed At", employee.deputedAt, "Store", employee.store, yPos)
-        yPos += 40f
-        drawInfoRow("Account No.", employee.bank, "Bank Name", employee.bankname, yPos)
-        yPos += 40f
-        drawInfoRow("PAN No.", employee.pan, "IFSC Code", employee.ifsc, yPos)
+        drawInfoRow("Employee Name", employee.name, "Date of Joining", employee.doj, yPos); yPos += 22f
+        drawInfoRow("Designation", employee.role, "Account No.", employee.bank, yPos); yPos += 22f
+        drawInfoRow("Emp ID", employee.empid, "PAN No.", employee.pan, yPos); yPos += 22f
+        drawInfoRow("Deputed At", employee.deputedAt, "Bank Name", employee.bankname, yPos); yPos += 22f
+        drawInfoRow("Store", employee.store, "IFSC Code", employee.ifsc, yPos); yPos += 22f
+
+        yPos += 10f
+        canvas.drawLine(margin, yPos, pageInfo.pageWidth - margin, yPos, paintDashed)
+
+        // Attendance Boxes
+        yPos += 15f
+        val boxW = (pageInfo.pageWidth - (margin * 2) - 30f) / 3f
         
-        yPos += 40f
-        canvas.drawLine(margin, yPos, pageInfo.pageWidth - margin, yPos, paintBorder)
+        fun drawAttendanceBox(label: String, value: String, xStart: Float) {
+            val rect = android.graphics.RectF(xStart, yPos, xStart + boxW, yPos + 45f)
+            canvas.drawRoundRect(rect, 6f, 6f, paintBorder)
+            canvas.drawText(label, xStart + (boxW/2f), yPos + 18f, paintBoxSub.apply { color = Color.parseColor("#6B7686") })
+            canvas.drawText(value, xStart + (boxW/2f), yPos + 35f, paintHeader.apply { textSize = 14f })
+        }
         
-        // Attendance
+        drawAttendanceBox("PAID DAYS", employee.paidDays.toString(), margin)
+        drawAttendanceBox("LWP", if (employee.lwp == 0) "—" else employee.lwp.toString(), margin + boxW + 15f)
+        drawAttendanceBox("REFUND DAYS", if (employee.refundDays == 0) "—" else employee.refundDays.toString(), margin + (boxW*2) + 30f)
+
+        yPos += 60f
+        canvas.drawLine(margin, yPos, pageInfo.pageWidth - margin, yPos, paintDashed)
+        yPos += 25f
+
+        // Earnings and Deductions
+        canvas.drawText("EARNINGS", col1Left, yPos, paintValue)
+        canvas.drawText("DEDUCTIONS", col2Left, yPos, paintValue)
+        
         yPos += 30f
-        canvas.drawText("PAID DAYS: ${employee.paidDays}", margin, yPos, paintValue)
-        canvas.drawText("LWP: ${employee.lwp}", margin + 150f, yPos, paintValue)
-        canvas.drawText("REFUND DAYS: ${employee.refundDays}", margin + 300f, yPos, paintValue)
-
-        yPos += 20f
-        canvas.drawLine(margin, yPos, pageInfo.pageWidth - margin, yPos, paintBorder)
-
-        // Earnings and Deductions Header
-        yPos += 40f
-        val colEarnings = margin
-        val colDeductions = margin + 250f
-        val valColEarnings = margin + 200f
-        val valColDeductions = pageInfo.pageWidth - margin
-
-        val paintAmountRight = Paint(paintValue).apply { textAlign = Paint.Align.RIGHT }
-
-        canvas.drawText("EARNINGS", colEarnings, yPos, paintLabel)
-        canvas.drawText("DEDUCTIONS", colDeductions, yPos, paintLabel)
-        
-        yPos += 20f
         val startY = yPos
 
-        // Earnings List
-        fun drawLineItem(label: String, amount: Double, xLabel: Float, xVal: Float, y: Float) {
+        fun drawLineItem(label: String, amount: Double, xLabel: Float, xValRight: Float, y: Float) {
             canvas.drawText(label, xLabel, y, paintValue.apply { typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL) })
-            canvas.drawText(formatCurrency(amount), xVal, y, paintAmountRight)
+            
+            // Faint gray box behind value
+            val boxR = android.graphics.RectF(xValRight - 75f, y - 12f, xValRight, y + 4f)
+            canvas.drawRoundRect(boxR, 4f, 4f, paintFillLightGray)
+            
+            canvas.drawText(formatCurrency(amount), xValRight - 4f, y, paintValueRight.apply { typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL) })
         }
 
         var earnY = startY
-        drawLineItem("Basic Salary", employee.basic, colEarnings, valColEarnings, earnY); earnY += 25f
-        drawLineItem("Attendance Bonus", employee.attendance, colEarnings, valColEarnings, earnY); earnY += 25f
-        drawLineItem("Performance Bonus", employee.performance, colEarnings, valColEarnings, earnY); earnY += 25f
-        drawLineItem("Festival Bonus", employee.festivalBonus, colEarnings, valColEarnings, earnY); earnY += 25f
+        drawLineItem("Basic Salary", employee.basic, col1Left, col1Right, earnY); earnY += 30f
+        drawLineItem("Attendance Bonus", employee.attendance, col1Left, col1Right, earnY); earnY += 30f
+        drawLineItem("Performance Bonus", employee.performance, col1Left, col1Right, earnY); earnY += 30f
+        drawLineItem("Festival Bonus", employee.festivalBonus, col1Left, col1Right, earnY); earnY += 30f
 
-        // Deductions List
         var dedY = startY
         if (employee.lwpDeduction > 0) {
-            drawLineItem("LWP Deduction", employee.lwpDeduction, colDeductions, valColDeductions, dedY); dedY += 25f
+            drawLineItem("LWP Deduction", employee.lwpDeduction, col2Left, col2Right, dedY); dedY += 30f
         }
-        drawLineItem("DQ Deduction", employee.dq, colDeductions, valColDeductions, dedY); dedY += 25f
-        drawLineItem("Other Deduction", employee.otherDed, colDeductions, valColDeductions, dedY); dedY += 25f
-        drawLineItem("Group Insurance", employee.groupInsurance, colDeductions, valColDeductions, dedY); dedY += 25f
+        drawLineItem("DQ Deduction", employee.dq, col2Left, col2Right, dedY); dedY += 30f
+        drawLineItem("Other Deduction", employee.otherDed, col2Left, col2Right, dedY); dedY += 30f
+        drawLineItem("Group Insurance", employee.groupInsurance, col2Left, col2Right, dedY); dedY += 30f
 
-        yPos = maxOf(earnY, dedY) + 20f
-        canvas.drawLine(margin, yPos, pageInfo.pageWidth - margin, yPos, paintBorder)
+        yPos = maxOf(earnY, dedY) + 10f
         
-        // Subtotals
+        // Thick black line above totals
+        canvas.drawLine(col1Left, yPos, col1Right, yPos, paintThickLine)
+        canvas.drawLine(col2Left, yPos, col2Right, yPos, paintThickLine)
+        
         yPos += 20f
-        canvas.drawText("Gross Earnings", colEarnings, yPos, paintValue)
-        canvas.drawText(formatCurrency(employee.gross), valColEarnings, yPos, paintAmountRight.apply { typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) })
+        
+        canvas.drawText("Gross Earnings", col1Left, yPos, paintValue)
+        canvas.drawText("₹${formatCurrency(employee.gross)}", col1Right, yPos, paintValueRight)
 
-        canvas.drawText("Total Deductions", colDeductions, yPos, paintValue)
-        canvas.drawText(formatCurrency(employee.ded), valColDeductions, yPos, paintAmountRight)
+        canvas.drawText("Total Deduction", col2Left, yPos, paintValue)
+        canvas.drawText("₹${formatCurrency(employee.ded)}", col2Right, yPos, paintValueRight)
 
         // Net Pay Bar
-        yPos += 40f
-        canvas.drawRect(margin, yPos, pageInfo.pageWidth - margin, yPos + 60f, paintFillDark)
-        val paintWhiteTitle = Paint(paintTitle).apply { color = Color.WHITE }
-        val paintWhiteSub = Paint(paintSub).apply { color = Color.LTGRAY }
+        yPos += 30f
+        canvas.drawRect(margin, yPos, pageInfo.pageWidth - margin, yPos + 40f, paintFillDarkGray)
         
-        canvas.drawText("NET PAY", margin + 20f, yPos + 25f, paintWhiteTitle.apply { textSize = 14f })
-        canvas.drawText("For the month", margin + 20f, yPos + 45f, paintWhiteSub)
-        canvas.drawText(formatCurrency(employee.net), valColDeductions - 20f, yPos + 40f, paintWhiteTitle.apply { textAlign = Paint.Align.RIGHT; textSize = 24f })
+        canvas.drawText("Net Pay", margin + 15f, yPos + 25f, paintValue.apply { textSize = 14f })
+        canvas.drawText("₹${formatCurrency(employee.net)}", pageInfo.pageWidth - margin - 15f, yPos + 25f, paintValueRight.apply { textSize = 16f; color = Color.BLACK })
 
-        // Remarks
-        yPos += 100f
-        canvas.drawText("REMARKS / REASON FOR ADJUSTMENT", margin, yPos, paintLabel)
-        yPos += 20f
-        canvas.drawText(employee.remarks.ifEmpty { "No remarks." }, margin, yPos, paintValue.apply { typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC) })
+        // Words
+        yPos += 60f
+        val paintItalic = Paint(paintSub).apply { typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC) }
+        canvas.drawText("Net pay in words: Rupees (Implementation specific) only", margin, yPos, paintItalic)
+
+        // Footer
+        yPos = pageInfo.pageHeight - 50f
+        val footerRect = android.graphics.RectF(margin, yPos, pageInfo.pageWidth - margin, yPos + 30f)
+        canvas.drawRoundRect(footerRect, 6f, 6f, paintFillGray)
+        canvas.drawText("This is a system-generated payslip.", margin + 10f, yPos + 18f, paintSub)
+        canvas.drawText("Page 1 of 1", pageInfo.pageWidth - margin - 10f, yPos + 18f, Paint(paintSub).apply { textAlign = Paint.Align.RIGHT })
 
         pdfDocument.finishPage(page)
         return pdfDocument
