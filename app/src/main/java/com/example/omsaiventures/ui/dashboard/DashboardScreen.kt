@@ -515,23 +515,23 @@ fun PayslipDetail(
         // Earnings and Deductions Columns
         Row(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.weight(1f).padding(16.dp)) {
-                Text("EARNINGS", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Ink, letterSpacing = 1.sp, modifier = Modifier.padding(bottom = 8.dp))
+                Text("EARNINGS", fontSize = 10.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, color = LedgerDark, letterSpacing = 1.sp, modifier = Modifier.padding(bottom = 12.dp))
                 LineItemWeb("Basic Salary", employee.basic)
                 LineItemWeb("Attendance Bonus", employee.attendance)
                 LineItemWeb("Performance Bonus", employee.performance)
                 LineItemWeb("Festival Bonus", employee.festivalBonus)
                 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Ink)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = LedgerDark, thickness = 1.5.dp)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Gross Earnings", fontWeight = FontWeight.Bold, fontSize = 9.sp, color = Ink)
-                    Text("₹${formatCurrency(employee.gross)}", fontWeight = FontWeight.ExtraBold, fontSize = 10.sp, color = Ink)
+                    Text("Gross Earnings", fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, fontSize = 10.sp, color = LedgerDark)
+                    Text("₹${formatCurrency(employee.gross)}", fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 10.sp, color = LedgerDark)
                 }
             }
             
-            Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(GlassBorder))
+            Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(Color.Transparent))
 
             Column(modifier = Modifier.weight(1f).padding(16.dp)) {
-                Text("DEDUCTIONS", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Ink, letterSpacing = 1.sp, modifier = Modifier.padding(bottom = 8.dp))
+                Text("DEDUCTIONS", fontSize = 10.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, color = LedgerDark, letterSpacing = 1.sp, modifier = Modifier.padding(bottom = 12.dp))
                 if (employee.lwpDeduction > 0) {
                     LineItemWeb("LWP Deduction", employee.lwpDeduction)
                 }
@@ -539,10 +539,10 @@ fun PayslipDetail(
                 LineItemWeb("Other Deduction", employee.otherDed)
                 LineItemWeb("Group Insurance", employee.groupInsurance)
                 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Ink)
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = LedgerDark, thickness = 1.5.dp)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Total Deduction", fontWeight = FontWeight.Bold, fontSize = 9.sp, color = Ink)
-                    Text("₹${formatCurrency(employee.ded)}", fontWeight = FontWeight.ExtraBold, fontSize = 10.sp, color = Ink)
+                    Text("Total Deduction", fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, fontSize = 10.sp, color = LedgerDark)
+                    Text("₹${formatCurrency(employee.ded)}", fontWeight = FontWeight.ExtraBold, fontStyle = FontStyle.Italic, fontSize = 10.sp, color = LedgerDark)
                 }
             }
         }
@@ -592,6 +592,16 @@ fun PayslipDetail(
                 )
             }
         }
+
+        // Footer (Matching PDF & Screenshot)
+        Box(
+            modifier = Modifier.fillMaxWidth().background(PaperDim).padding(16.dp)
+        ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("This is a system-generated payslip.", color = InkSoft, fontSize = 9.sp)
+                Text("Page 1 of 1", color = InkSoft, fontSize = 9.sp)
+            }
+        }
     }
 }
 
@@ -606,16 +616,27 @@ fun InfoItem(label: String, value: String, modifier: Modifier = Modifier) {
 @Composable
 fun LineItemWeb(label: String, amount: Double) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, fontSize = 9.sp, color = Ink)
-        Box(
-            modifier = Modifier.background(PaperDim, RoundedCornerShape(2.dp)).padding(horizontal = 6.dp, vertical = 2.dp)
-        ) {
-            Text(formatCurrency(amount), fontSize = 9.sp, color = Ink)
-        }
+        Text(
+            text = label, 
+            fontSize = 9.sp, 
+            color = InkSoft.copy(alpha = 0.9f), 
+            fontStyle = FontStyle.Italic, 
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f) // Push the amount to the edge
+        )
+        Text(
+            text = formatCurrency(amount), 
+            fontSize = 9.sp, 
+            color = InkSoft.copy(alpha = 0.9f), 
+            fontStyle = FontStyle.Italic, 
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.End,
+            maxLines = 1 // Ensure it stays on a single line
+        )
     }
 }
 

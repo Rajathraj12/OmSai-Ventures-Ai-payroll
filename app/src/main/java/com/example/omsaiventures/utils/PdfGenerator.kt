@@ -81,9 +81,10 @@ object PdfGenerator {
         }
         val paintHeader = Paint().apply {
             color = Color.parseColor("#16243A")
-            textSize = 14f
+            textSize = 18f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             textAlign = Paint.Align.CENTER
+            letterSpacing = 0.1f
         }
         val paintLabel = Paint().apply {
             color = Color.parseColor("#6B7686")
@@ -133,12 +134,12 @@ object PdfGenerator {
         if (bitmap != null) {
             val scaledBitmap = android.graphics.Bitmap.createScaledBitmap(bitmap, 60, 60, true)
             // Logo background and border
-            canvas.drawRoundRect(margin, yPos, margin + 70f, yPos + 70f, 8f, 8f, paintFillGray)
-            canvas.drawBitmap(scaledBitmap, margin + 5f, yPos + 5f, null)
-            canvas.drawRoundRect(margin, yPos, margin + 70f, yPos + 70f, 8f, 8f, paintBorder)
+            canvas.drawRoundRect(margin, yPos, margin + 80f, yPos + 80f, 8f, 8f, paintFillGray)
+            canvas.drawBitmap(scaledBitmap, margin + 10f, yPos + 10f, null)
+            canvas.drawRoundRect(margin, yPos, margin + 80f, yPos + 80f, 8f, 8f, paintBorder)
         }
 
-        val textStartX = margin + 90f // Offset for text next to logo
+        val textStartX = margin + 100f // Offset for text next to logo
 
         // Draw the Month/Year box on the right
         val boxWidth = 100f
@@ -162,8 +163,8 @@ object PdfGenerator {
         canvas.drawText("2026", boxCenterX, yPos + 65f, paintBoxSub)
 
         // Company Details (Center Column)
-        canvas.drawText(company.name, textStartX, yPos + 15f, paintTitle)
-        var currentY = yPos + 30f
+        canvas.drawText(company.name, textStartX, yPos + 25f, paintTitle)
+        var currentY = yPos + 40f
 
         val maxTextWidth = boxLeft - textStartX - 20f
         val addressWords = company.sub.replace("\n", ", ").split(" ")
@@ -183,13 +184,13 @@ object PdfGenerator {
         currentY += 12f
         canvas.drawText("GSTIN: ${company.gst}", textStartX, currentY, paintLabel)
 
-        yPos = maxOf(currentY, yPos + boxHeight) + 20f
+        yPos = maxOf(currentY, yPos + boxHeight) + 30f
         
         canvas.drawLine(margin, yPos, pageInfo.pageWidth - margin, yPos, paintBorder)
         
-        yPos += 20f
+        yPos += 30f
         canvas.drawText("PAY SLIP", pageInfo.pageWidth / 2f, yPos, paintHeader)
-        yPos += 10f
+        yPos += 15f
         
         canvas.drawLine(margin, yPos, pageInfo.pageWidth - margin, yPos, paintBorder)
 

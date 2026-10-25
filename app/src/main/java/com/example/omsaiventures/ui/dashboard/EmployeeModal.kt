@@ -1,6 +1,7 @@
 package com.example.omsaiventures.ui.dashboard
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,7 +18,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.omsaiventures.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EmployeeModal(
     employee: Employee?,
@@ -53,6 +57,49 @@ fun EmployeeModal(
     var groupInsurance by remember { mutableStateOf(employee?.groupInsurance?.toString() ?: "0") }
     
     var remarks by remember { mutableStateOf(employee?.remarks ?: "") }
+
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    // Auto-calculated variables
+    val parsedBasic = basic.toDoubleOrNull() ?: 0.0
+    val parsedAttendance = attendance.toDoubleOrNull() ?: 0.0
+    val parsedPerformance = performance.toDoubleOrNull() ?: 0.0
+    val parsedFestival = festivalBonus.toDoubleOrNull() ?: 0.0
+
+    val parsedCustomDays = customDaysInMonth.toIntOrNull() ?: 31
+    val parsedLwp = lwp.toIntOrNull() ?: 0
+
+    val parsedDq = dq.toDoubleOrNull() ?: 0.0
+    val parsedOtherDed = otherDed.toDoubleOrNull() ?: 0.0
+    val parsedInsurance = groupInsurance.toDoubleOrNull() ?: 0.0
+
+    val computedGross = parsedBasic + parsedAttendance + parsedPerformance + parsedFestival
+    val computedLwpDed = if (parsedCustomDays > 0) (parsedBasic / parsedCustomDays) * parsedLwp else 0.0
+    val computedDed = parsedDq + parsedOtherDed + parsedInsurance + computedLwpDed
+    val computedNet = computedGross - computedDed
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDatePicker = false
+                    val dateMillis = datePickerState.selectedDateMillis
+                    if (dateMillis != null) {
+                        val format = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+                        doj = format.format(Date(dateMillis))
+                    }
+                }) { Text("OK", color = LedgerDark) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel", color = InkSoft) }
+            },
+            colors = DatePickerDefaults.colors(containerColor = Color.White)
+        ) {
+            DatePicker(state = datePickerState, colors = DatePickerDefaults.colors(containerColor = Color.White))
+        }
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -105,7 +152,7 @@ fun EmployeeModal(
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Field(label = "EMP ID", value = empid, onValueChange = { empid = it }, modifier = Modifier.weight(1f))
-                        Field(label = "DATE OF JOINING", value = doj, onValueChange = { doj = it }, modifier = Modifier.weight(1f))
+                        Field(label = "DATE OF JOINING", value = doj, onValueChange = { doj = it }, modifier = Modifier.weight(1f), onClick = { showDatePicker = true })
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Field(label = "DEPUTED AT", value = deputedAt, onValueChange = { deputedAt = it }, modifier = Modifier.weight(1f))
@@ -171,6 +218,23 @@ fun EmployeeModal(
                             )
                         )
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    SectionHeader("PAYROLL SUMMARY (AUTO-CALCULATED)")
+                    Row(
+                        modifier = Modifier.fillMaxWidth().background(PaperDim, RoundedCornerShape(8.dp)).padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Gross Earnings: ₹${formatCurrency(computedGross)}", color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Total Deductions: ₹${formatCurrency(computedDed)}", color = Color.Red.copy(alpha=0.8f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                            Text("Net Pay", color = LedgerDark, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text("₹${formatCurrency(computedNet)}", color = LedgerDark, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                    }
+
                 }
 
                 HorizontalDivider(color = GlassBorder, modifier = Modifier.padding(bottom = 16.dp))
@@ -239,19 +303,32 @@ fun SectionHeader(title: String) {
 }
 
 @Composable
-fun Field(label: String, value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier, isNumber: Boolean = false) {
+fun Field(
+    label: String, 
+    value: String, 
+    onValueChange: (String) -> Unit, 
+    modifier: Modifier = Modifier, 
+    isNumber: Boolean = false,
+    onClick: (() -> Unit)? = null
+) {
     Column(modifier = modifier) {
         Text(text = label, color = InkSoft, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp))
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = if (isNumber) KeyboardOptions(keyboardType = KeyboardType.Number) else KeyboardOptions.Default,
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = GlassBorder,
-                focusedBorderColor = Brass
+        Box {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = if (isNumber) KeyboardOptions(keyboardType = KeyboardType.Number) else KeyboardOptions.Default,
+                readOnly = onClick != null,
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = GlassBorder,
+                    focusedBorderColor = Brass
+                )
             )
-        )
+            if (onClick != null) {
+                Box(modifier = Modifier.matchParentSize().clickable { onClick() }.background(Color.Transparent))
+            }
+        }
     }
 }
