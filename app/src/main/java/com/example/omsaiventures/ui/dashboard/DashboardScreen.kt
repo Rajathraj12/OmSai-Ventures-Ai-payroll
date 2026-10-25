@@ -199,7 +199,7 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
                     }
                     "offerLetter" -> {
                         Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
-                            OfferLetterScreen()
+                            OfferLetterScreen(state = state)
                         }
                     }
                     "history" -> {

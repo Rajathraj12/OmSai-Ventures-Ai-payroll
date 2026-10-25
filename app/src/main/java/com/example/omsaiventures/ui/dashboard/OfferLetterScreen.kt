@@ -2,6 +2,7 @@ package com.example.omsaiventures.ui.dashboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,8 +20,28 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.omsaiventures.ui.theme.*
 
+data class OfferLetterData(
+    val candidateName: String,
+    val employeeId: String,
+    val address: String,
+    val designation: String,
+    val position: String,
+    val roleDescription: String,
+    val deputedClient: String,
+    val workLocation: String,
+    val dateOfJoining: String,
+    val startDate: String,
+    val endDate: String,
+    val workingHours: String,
+    val basicSalary: String,
+    val attendanceBonus: String,
+    val performanceBonus: String,
+    val netSalary: String
+)
+
 @Composable
-fun OfferLetterScreen() {
+fun OfferLetterScreen(state: DashboardState) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var candidateName by remember { mutableStateOf("") }
     var employeeId by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
@@ -131,30 +152,108 @@ fun OfferLetterScreen() {
             )
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                OutlinedTextField(
-                    value = dateOfJoining,
-                    onValueChange = { dateOfJoining = it },
-                    label = { Text("Date of Joining") },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("YYYY-MM-DD") }
-                )
-                OutlinedTextField(
-                    value = startDate,
-                    onValueChange = { startDate = it },
-                    label = { Text("Term Start Date") },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("YYYY-MM-DD") }
-                )
+                var showJoiningDatePicker by remember { mutableStateOf(false) }
+                var showStartDatePicker by remember { mutableStateOf(false) }
+
+                if (showJoiningDatePicker) {
+                    val datePickerState = rememberDatePickerState()
+                    DatePickerDialog(
+                        onDismissRequest = { showJoiningDatePicker = false },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showJoiningDatePicker = false
+                                datePickerState.selectedDateMillis?.let {
+                                    dateOfJoining = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date(it))
+                                }
+                            }) { Text("OK") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showJoiningDatePicker = false }) { Text("Cancel") }
+                        }
+                    ) {
+                        DatePicker(state = datePickerState)
+                    }
+                }
+
+                if (showStartDatePicker) {
+                    val datePickerState = rememberDatePickerState()
+                    DatePickerDialog(
+                        onDismissRequest = { showStartDatePicker = false },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showStartDatePicker = false
+                                datePickerState.selectedDateMillis?.let {
+                                    startDate = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date(it))
+                                }
+                            }) { Text("OK") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showStartDatePicker = false }) { Text("Cancel") }
+                        }
+                    ) {
+                        DatePicker(state = datePickerState)
+                    }
+                }
+
+                Box(modifier = Modifier.weight(1f)) {
+                    OutlinedTextField(
+                        value = dateOfJoining,
+                        onValueChange = {},
+                        label = { Text("Date of Joining") },
+                        modifier = Modifier.fillMaxWidth(),
+                        readOnly = true,
+                        placeholder = { Text("YYYY-MM-DD") }
+                    )
+                    Box(modifier = Modifier.matchParentSize().clickable { showJoiningDatePicker = true }.background(Color.Transparent))
+                }
+
+                Box(modifier = Modifier.weight(1f)) {
+                    OutlinedTextField(
+                        value = startDate,
+                        onValueChange = {},
+                        label = { Text("Term Start Date") },
+                        modifier = Modifier.fillMaxWidth(),
+                        readOnly = true,
+                        placeholder = { Text("YYYY-MM-DD") }
+                    )
+                    Box(modifier = Modifier.matchParentSize().clickable { showStartDatePicker = true }.background(Color.Transparent))
+                }
             }
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                OutlinedTextField(
-                    value = endDate,
-                    onValueChange = { endDate = it },
-                    label = { Text("Term End Date") },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("YYYY-MM-DD") }
-                )
+                var showEndDatePicker by remember { mutableStateOf(false) }
+
+                if (showEndDatePicker) {
+                    val datePickerState = rememberDatePickerState()
+                    DatePickerDialog(
+                        onDismissRequest = { showEndDatePicker = false },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showEndDatePicker = false
+                                datePickerState.selectedDateMillis?.let {
+                                    endDate = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date(it))
+                                }
+                            }) { Text("OK") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showEndDatePicker = false }) { Text("Cancel") }
+                        }
+                    ) {
+                        DatePicker(state = datePickerState)
+                    }
+                }
+
+                Box(modifier = Modifier.weight(1f)) {
+                    OutlinedTextField(
+                        value = endDate,
+                        onValueChange = {},
+                        label = { Text("Term End Date") },
+                        modifier = Modifier.fillMaxWidth(),
+                        readOnly = true,
+                        placeholder = { Text("YYYY-MM-DD") }
+                    )
+                    Box(modifier = Modifier.matchParentSize().clickable { showEndDatePicker = true }.background(Color.Transparent))
+                }
                 OutlinedTextField(
                     value = workingHours,
                     onValueChange = { workingHours = it },
@@ -193,10 +292,17 @@ fun OfferLetterScreen() {
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
+                
+                val basic = basicSalary.toDoubleOrNull() ?: 0.0
+                val attBonus = attendanceBonus.toDoubleOrNull() ?: 0.0
+                val perfBonus = performanceBonus.toDoubleOrNull() ?: 0.0
+                netSalary = (basic + attBonus + perfBonus).toString()
+
                 OutlinedTextField(
                     value = netSalary,
-                    onValueChange = { netSalary = it },
-                    label = { Text("Net Salary") },
+                    onValueChange = { }, // Read Only
+                    readOnly = true,
+                    label = { Text("Net Salary (Auto)") },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -211,7 +317,19 @@ fun OfferLetterScreen() {
                 .padding(20.dp)
         ) {
             Button(
-                onClick = { /* Generate PDF Action */ },
+                onClick = {
+                    val data = OfferLetterData(
+                        candidateName, employeeId, address, designation, position,
+                        roleDescription, deputedClient, workLocation, dateOfJoining,
+                        startDate, endDate, workingHours, basicSalary, attendanceBonus,
+                        performanceBonus, netSalary
+                    )
+                    com.example.omsaiventures.utils.PdfGenerator.generateOfferLetterPdf(
+                        context = context,
+                        data = data,
+                        company = state.company
+                    )
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
