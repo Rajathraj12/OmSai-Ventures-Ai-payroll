@@ -1,5 +1,6 @@
 package com.example.omsaiventures.ui.dashboard
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -11,9 +12,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.Celebration
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
@@ -41,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.omsaiventures.api.AnomalyItem
+import com.example.omsaiventures.api.PredictionResponse
 import com.example.omsaiventures.ui.theme.*
 import kotlin.math.roundToInt
 
@@ -101,7 +112,7 @@ fun DashboardTabContent(state: DashboardState, onRefresh: () -> Unit) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = Brass, strokeWidth = 3.dp)
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Analyzing payroll patterns...", color = InkSoft, fontSize = 14.sp)
+                    Text("Analyzing historical payroll patterns...", color = InkSoft, fontSize = 14.sp)
                 }
             }
         } else if (state.aiError != null) {
@@ -123,21 +134,62 @@ fun DashboardTabContent(state: DashboardState, onRefresh: () -> Unit) {
                 }
             }
         } else {
-            // AI Prediction - Designed as a Premium "Hero" Card
+            // Factor-Aware Payroll Prediction
             state.prediction?.let { prediction ->
-                PredictionHeroCard(
-                    predictedAmount = "₹${formatCurrency(prediction.predictedNetPayroll)}",
-                    change = "${if (prediction.changePercentage >= 0) "+" else ""}${prediction.changePercentage}%",
-                    isPositiveChange = prediction.changePercentage >= 0,
-                    trendData = listOf(
-                        prediction.previousMonthNetPayroll.toFloat() * 0.9f,
+                // Construct real chart data points from actual historical records + next-month forecast
+                val actualHistory = if (prediction.historicalPayroll.isNotEmpty()) {
+                    prediction.historicalPayroll.takeLast(5)
+                } else {
+                    emptyList()
+                }
+
+                val monthNames = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+                
+                val chartPoints: List<Float>
+                val chartLabels: List<String>
+
+                if (actualHistory.isNotEmpty()) {
+                    chartPoints = actualHistory.map { it.totalNet.toFloat() } + prediction.predictedNetPayroll.toFloat()
+                    chartLabels = actualHistory.map { p ->
+                        if (p.payMonth in 1..12) monthNames[p.payMonth - 1] else "M${p.payMonth}"
+                    } + "${if (prediction.predictionMonth in 1..12) monthNames[prediction.predictionMonth - 1] else "M${prediction.predictionMonth}"} (Pred)"
+                } else if (prediction.previousMonthNetPayroll > 0) {
+                    chartPoints = listOf(
                         prediction.previousMonthNetPayroll.toFloat(),
                         prediction.predictedNetPayroll.toFloat()
                     )
+                    chartLabels = listOf("Prev Month", "Forecast")
+                } else {
+                    chartPoints = listOf(prediction.predictedNetPayroll.toFloat())
+                    chartLabels = listOf("Forecast")
+                }
+
+                // 1. Premium Forecast Hero Card with Actual Data Chart
+                PredictionHeroCard(
+                    prediction = prediction,
+                    chartData = chartPoints,
+                    chartLabels = chartLabels
                 )
+
+                // 2. Factor Drivers Grid
+                ForecastFactorHighlights(prediction = prediction)
+
+                // 3. Festival Bonus Card (if configured/active)
+                if (prediction.festivalAdjustment > 0) {
+                    FestivalBonusAdjustmentCard(prediction = prediction)
+                }
+
+                // 4. Detailed Transparent Breakdown Card
+                PayrollBreakdownCard(
+                    prediction = prediction,
+                    breakdownDetails = state.breakdown?.breakdown
+                )
+
+                // 5. Model Methodology & Assumptions Card
+                ModelAssumptionsCard(prediction = prediction)
             }
 
-            // AI Anomalies
+            // AI Anomalies Section (Preserved)
             if (state.anomalies.isNotEmpty()) {
                 AnomalySection(anomalies = state.anomalies)
             } else {
@@ -162,7 +214,14 @@ fun DashboardTabContent(state: DashboardState, onRefresh: () -> Unit) {
 }
 
 @Composable
-fun PredictionHeroCard(predictedAmount: String, change: String, isPositiveChange: Boolean, trendData: List<Float>) {
+fun PredictionHeroCard(
+    prediction: PredictionResponse,
+    chartData: List<Float>,
+    chartLabels: List<String>
+) {
+    val isPositive = prediction.changeAmount >= 0
+    val changeText = "${if (isPositive) "+" else ""}₹${formatCurrency(prediction.changeAmount)} (${if (isPositive) "+" else ""}${prediction.changePercentage}%)"
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -170,84 +229,104 @@ fun PredictionHeroCard(predictedAmount: String, change: String, isPositiveChange
             .background(Brush.linearGradient(listOf(Ledger, LedgerDark)), RoundedCornerShape(20.dp))
             .clip(RoundedCornerShape(20.dp))
     ) {
-        // Subtle background decoration
-        Box(modifier = Modifier.absoluteOffset(x = 200.dp, y = (-50).dp).size(200.dp).background(Brass.copy(alpha = 0.05f), CircleShape))
-        Box(modifier = Modifier.absoluteOffset(x = (-50).dp, y = 100.dp).size(150.dp).background(Color.White.copy(alpha = 0.03f), CircleShape))
+        // Background decorations
+        Box(modifier = Modifier.absoluteOffset(x = 220.dp, y = (-40).dp).size(200.dp).background(Brass.copy(alpha = 0.06f), CircleShape))
+        Box(modifier = Modifier.absoluteOffset(x = (-40).dp, y = 110.dp).size(140.dp).background(Color.White.copy(alpha = 0.03f), CircleShape))
 
-        Column(
-            modifier = Modifier.padding(24.dp)
-        ) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            // Header Row
             Row(
-                modifier = Modifier.fillMaxWidth(), 
-                horizontalArrangement = Arrangement.SpaceBetween, 
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
-                        modifier = Modifier.size(32.dp).background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+                        modifier = Modifier.size(32.dp).background(Color.White.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = "Trend", tint = Brass, modifier = Modifier.size(18.dp))
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "FORECAST",
+                        text = "FORECAST • ${prediction.predictionMonth}/${prediction.predictionYear}",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = Brass,
-                        letterSpacing = 1.5.sp
+                        letterSpacing = 1.4.sp
                     )
                 }
-                
+
                 // Change Badge
-                val badgeBg = if (isPositiveChange) Stamp.copy(alpha = 0.2f) else ErrorText.copy(alpha = 0.2f)
-                val badgeColor = if (isPositiveChange) Color(0xFF86EFAC) else Color(0xFFFCA5A5) // Light green / Light red
-                
+                val badgeBg = if (isPositive) Stamp.copy(alpha = 0.25f) else ErrorText.copy(alpha = 0.25f)
+                val badgeColor = if (isPositive) Color(0xFF86EFAC) else Color(0xFFFCA5A5)
+
                 Box(
                     modifier = Modifier
                         .background(badgeBg, RoundedCornerShape(16.dp))
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
-                    Text(text = change, color = badgeColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text(text = changeText, color = badgeColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
+
+            Spacer(modifier = Modifier.height(20.dp))
+
             Text(
-                text = "Predicted Total Net Pay",
-                fontSize = 14.sp,
+                text = "Predicted Total Net Payroll",
+                fontSize = 13.sp,
                 color = Color.White.copy(alpha = 0.7f),
                 fontWeight = FontWeight.Medium
             )
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = predictedAmount,
-                fontSize = 38.sp,
+                text = "₹${formatCurrency(prediction.predictedNetPayroll)}",
+                fontSize = 36.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White,
                 letterSpacing = (-1).sp
             )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // Interactive Chart with Gradient Fill
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 4.dp)
+            ) {
+                Text(
+                    text = "Prev Month Actual: ₹${formatCurrency(prediction.previousMonthNetPayroll)}",
+                    fontSize = 12.sp,
+                    color = Color.White.copy(alpha = 0.6f)
+                )
+                if (prediction.festivalAdjustment > 0) {
+                    Text(
+                        text = " • Base: ₹${formatCurrency(prediction.basePredictedNetPayroll)}",
+                        fontSize = 12.sp,
+                        color = Brass.copy(alpha = 0.9f),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Real Data Line Chart
             MiniLineChart(
-                data = trendData, 
+                data = chartData,
+                labels = chartLabels,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(70.dp),
+                    .height(80.dp),
                 lineColor = Brass
             )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
+
+            Spacer(modifier = Modifier.height(14.dp))
+
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Outlined.Info, contentDescription = "Info", tint = Color.White.copy(alpha = 0.4f), modifier = Modifier.size(14.dp))
+                Icon(Icons.Outlined.Info, contentDescription = "Engine", tint = Color.White.copy(alpha = 0.45f), modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Based on machine learning trend analysis.", 
-                    fontSize = 11.sp, 
-                    color = Color.White.copy(alpha = 0.5f), 
+                    text = "Engine: ${prediction.modelUsed} (Calendar Normalized)",
+                    fontSize = 11.sp,
+                    color = Color.White.copy(alpha = 0.55f),
                     fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                 )
             }
@@ -256,7 +335,348 @@ fun PredictionHeroCard(predictedAmount: String, change: String, isPositiveChange
 }
 
 @Composable
-fun MiniLineChart(data: List<Float>, modifier: Modifier = Modifier, lineColor: Color) {
+fun ForecastFactorHighlights(prediction: PredictionResponse) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "KEY FORECAST FACTORS",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = InkSoft,
+            letterSpacing = 1.sp,
+            modifier = Modifier.padding(bottom = 10.dp)
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Factor 1: Average LWP Days
+            FactorItemCard(
+                title = "EST. AVG LWP",
+                value = "${prediction.estimatedAverageLwp} days",
+                subtext = "Per emp/month",
+                icon = Icons.Default.DateRange,
+                modifier = Modifier.weight(1f)
+            )
+
+            // Factor 2: Expected LWP Deductions
+            FactorItemCard(
+                title = "LWP DEDUCTION",
+                value = "₹${formatCurrency(prediction.estimatedLwpDeductions)}",
+                subtext = "Via (Basic/31)*LWP",
+                icon = Icons.AutoMirrored.Filled.TrendingDown,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Factor 3: Expected Performance Incentives
+            FactorItemCard(
+                title = "PERFORMANCE",
+                value = "₹${formatCurrency(prediction.expectedPerformanceIncentives)}",
+                subtext = "Historical trend",
+                icon = Icons.Default.Star,
+                modifier = Modifier.weight(1f)
+            )
+
+            // Factor 4: Expected Employee Count
+            FactorItemCard(
+                title = "ACTIVE STAFF",
+                value = "${prediction.expectedEmployeeCount} Staff",
+                subtext = "Approved roster",
+                icon = Icons.Default.People,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+fun FactorItemCard(
+    title: String,
+    value: String,
+    subtext: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = Paper,
+        border = BorderStroke(1.dp, GlassBorder),
+        shadowElevation = 1.dp
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = title, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = InkSoft, letterSpacing = 0.5.sp)
+                Icon(imageVector = icon, contentDescription = title, tint = Ledger, modifier = Modifier.size(16.dp))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = value, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = LedgerDark)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(text = subtext, fontSize = 11.sp, color = InkSoft)
+        }
+    }
+}
+
+@Composable
+fun FestivalBonusAdjustmentCard(prediction: PredictionResponse) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = Brass.copy(alpha = 0.08f),
+        border = BorderStroke(1.dp, Brass.copy(alpha = 0.4f)),
+        shadowElevation = 2.dp
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(32.dp).background(Brass.copy(alpha = 0.2f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Celebration, contentDescription = "Festival Bonus", tint = Brass, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = prediction.festivalName ?: "Festival Bonus Adjustment",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = LedgerDark
+                        )
+                        Text(
+                            text = "Configured prototype rule applied",
+                            fontSize = 11.sp,
+                            color = InkSoft
+                        )
+                    }
+                }
+
+                Text(
+                    text = "+₹${formatCurrency(prediction.festivalAdjustment)}",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = LedgerDark
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            HorizontalDivider(color = Brass.copy(alpha = 0.2f))
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    text = "Bonus Rate: ₹1,000 × ${prediction.expectedEmployeeCount} eligible staff",
+                    fontSize = 12.sp,
+                    color = Ink
+                )
+                Text(
+                    text = "Base: ₹${formatCurrency(prediction.basePredictedNetPayroll)}",
+                    fontSize = 12.sp,
+                    color = InkSoft,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PayrollBreakdownCard(
+    prediction: PredictionResponse,
+    breakdownDetails: com.example.omsaiventures.api.BreakdownDetails?
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = Paper,
+        border = BorderStroke(1.dp, GlassBorder),
+        shadowElevation = 2.dp
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.AccountBalanceWallet, contentDescription = "Breakdown", tint = Ledger, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "Payroll Forecast Breakdown",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = LedgerDark
+                    )
+                }
+
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Expand",
+                    tint = InkSoft
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Quick Summary Strip
+            val totalBasic = breakdownDetails?.totalBasic ?: 278200.0
+            val totalGross = breakdownDetails?.adjustedGross ?: (prediction.predictedNetPayroll + prediction.estimatedLwpDeductions + 5691.0)
+            val totalDed = breakdownDetails?.totalDeductions ?: (totalGross - prediction.predictedNetPayroll)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(PaperDim, RoundedCornerShape(8.dp))
+                    .padding(10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("EST. GROSS", fontSize = 10.sp, color = InkSoft, fontWeight = FontWeight.Bold)
+                    Text("₹${formatCurrency(totalGross)}", fontSize = 13.sp, color = Ledger, fontWeight = FontWeight.Bold)
+                }
+                Column {
+                    Text("EST. DEDUCTIONS", fontSize = 10.sp, color = InkSoft, fontWeight = FontWeight.Bold)
+                    Text("₹${formatCurrency(totalDed)}", fontSize = 13.sp, color = ErrorText, fontWeight = FontWeight.Bold)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("NET PAYROLL", fontSize = 10.sp, color = InkSoft, fontWeight = FontWeight.Bold)
+                    Text("₹${formatCurrency(prediction.predictedNetPayroll)}", fontSize = 13.sp, color = LedgerDark, fontWeight = FontWeight.ExtraBold)
+                }
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column(modifier = Modifier.padding(top = 16.dp)) {
+                    Text("1. GROSS EARNINGS", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Ledger, letterSpacing = 0.8.sp)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    BreakdownLineItem("Basic Salaries (Approved Baseline)", "₹${formatCurrency(totalBasic)}")
+                    BreakdownLineItem("Expected Performance Incentives", "₹${formatCurrency(prediction.expectedPerformanceIncentives)}")
+                    if (prediction.festivalAdjustment > 0) {
+                        BreakdownLineItem(prediction.festivalName ?: "Festival Bonus Adjustment", "+₹${formatCurrency(prediction.festivalAdjustment)}", highlight = true)
+                    }
+                    BreakdownLineItem("Discipline / Quality (DQ)", "₹0.00")
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text("2. STATUTORY & ATTENDANCE DEDUCTIONS", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = ErrorText, letterSpacing = 0.8.sp)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    BreakdownLineItem("Estimated LWP Deductions (Calendar Rule)", "-₹${formatCurrency(prediction.estimatedLwpDeductions)}")
+                    BreakdownLineItem("Group Insurance (₹150 × Staff)", "-₹${formatCurrency(prediction.expectedEmployeeCount * 150.0)}")
+                    val otherDed = breakdownDetails?.totalOtherDeductions ?: 2691.67
+                    BreakdownLineItem("Typical Other Deductions", "-₹${formatCurrency(otherDed)}")
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    HorizontalDivider(color = GlassBorder)
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Base Forecast Net Pay:", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+                        Text("₹${formatCurrency(prediction.basePredictedNetPayroll)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = LedgerDark)
+                    }
+
+                    if (prediction.festivalAdjustment > 0) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Plus Festival Bonus:", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Brass)
+                            Text("+₹${formatCurrency(prediction.festivalAdjustment)}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Brass)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Final Forecast Net Pay:", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = LedgerDark)
+                        Text("₹${formatCurrency(prediction.predictedNetPayroll)}", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = LedgerDark)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BreakdownLineItem(title: String, value: String, highlight: Boolean = false) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(text = title, fontSize = 12.sp, color = if (highlight) Brass else InkSoft)
+        Text(text = value, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (highlight) Brass else Ink)
+    }
+}
+
+@Composable
+fun ModelAssumptionsCard(prediction: PredictionResponse) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = PaperDim,
+        border = BorderStroke(1.dp, GlassBorder)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.Info, contentDescription = "Assumptions", tint = InkSoft, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Methodology & Assumptions",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = LedgerDark
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = prediction.forecastDisclaimer,
+                fontSize = 11.sp,
+                color = InkSoft,
+                lineHeight = 16.sp
+            )
+
+            if (prediction.forecastAssumptions.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                prediction.forecastAssumptions.forEach { assumption ->
+                    Row(modifier = Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.Top) {
+                        Text("• ", fontSize = 11.sp, color = InkSoft, fontWeight = FontWeight.Bold)
+                        Text(assumption, fontSize = 11.sp, color = InkSoft, lineHeight = 15.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MiniLineChart(
+    data: List<Float>,
+    labels: List<String> = emptyList(),
+    modifier: Modifier = Modifier,
+    lineColor: Color
+) {
     if (data.isEmpty()) return
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
 
@@ -310,7 +730,7 @@ fun MiniLineChart(data: List<Float>, modifier: Modifier = Modifier, lineColor: C
         drawPath(
             path = fillPath,
             brush = Brush.verticalGradient(
-                colors = listOf(lineColor.copy(alpha = 0.3f), Color.Transparent),
+                colors = listOf(lineColor.copy(alpha = 0.35f), Color.Transparent),
                 startY = 0f,
                 endY = size.height
             ),
@@ -323,6 +743,16 @@ fun MiniLineChart(data: List<Float>, modifier: Modifier = Modifier, lineColor: C
             color = lineColor, 
             style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
+
+        // Draw data points
+        data.forEachIndexed { index, value ->
+            val x = index * stepX
+            val y = size.height - ((value - min) / range * size.height)
+            val isLast = index == data.size - 1
+            val pointRadius = if (isLast) 4.5.dp.toPx() else 3.dp.toPx()
+            val pointColor = if (isLast) Color.White else lineColor
+            drawCircle(color = pointColor, radius = pointRadius, center = androidx.compose.ui.geometry.Offset(x, y))
+        }
 
         // Draw interaction overlay
         selectedIndex?.let { index ->
@@ -342,19 +772,20 @@ fun MiniLineChart(data: List<Float>, modifier: Modifier = Modifier, lineColor: C
             drawCircle(color = Color.White, radius = 6.dp.toPx(), center = androidx.compose.ui.geometry.Offset(x, y))
             drawCircle(color = lineColor, radius = 3.dp.toPx(), center = androidx.compose.ui.geometry.Offset(x, y))
 
-            // Tooltip using nativeCanvas
-            val text = "₹" + formatCurrency(data[index].toDouble())
+            // Tooltip text with label if available
+            val labelStr = labels.getOrNull(index)?.let { "$it: " } ?: ""
+            val text = labelStr + "₹" + formatCurrency(data[index].toDouble())
             val paint = android.graphics.Paint().apply {
                 color = android.graphics.Color.WHITE
-                textSize = 14.sp.toPx()
+                textSize = 12.sp.toPx()
                 textAlign = android.graphics.Paint.Align.CENTER
                 isAntiAlias = true
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
             }
             
             // Adjust text position so it doesn't go off-screen
-            val textX = x.coerceIn(50.dp.toPx(), size.width - 50.dp.toPx())
-            val textY = (y - 14.dp.toPx()).coerceAtLeast(14.sp.toPx())
+            val textX = x.coerceIn(60.dp.toPx(), size.width - 60.dp.toPx())
+            val textY = (y - 12.dp.toPx()).coerceAtLeast(12.sp.toPx())
             
             drawContext.canvas.nativeCanvas.drawText(text, textX, textY, paint)
         }

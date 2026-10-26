@@ -1,70 +1,56 @@
+import os
 import pandas as pd
-import joblib
+from payroll_engine import FactorAwareForecaster, FestivalConfig
 
-def get_prediction(model=None):
-    # Load model
+def get_prediction(
+    model=None,
+    slips_path: str = 'salary_slips_clean.csv',
+    monthly_path: str = 'monthly_payroll_totals.csv',
+    include_festival: bool = True,
+    custom_festival_bonus: float = None
+):
+    """
+    Generate next month's payroll forecast using the history-based,
+    factor-aware payroll forecasting engine.
+    """
     try:
-        if model is None:
-            model = joblib.load('payroll_prediction_model.joblib')
+        if not os.path.exists(slips_path) or not os.path.exists(monthly_path):
+            return {"error": f"Required dataset files not found at {slips_path} or {monthly_path}"}
+            
+        slips_df = pd.read_csv(slips_path)
+        monthly_df = pd.read_csv(monthly_path)
+        
+        forecaster = FactorAwareForecaster(slips_df, monthly_df)
+        forecast_res = forecaster.forecast_next_month(
+            include_festival=include_festival,
+            custom_festival_bonus=custom_festival_bonus
+        )
+        return forecast_res
     except Exception as e:
         return {"error": str(e)}
-    
-    # Load data
-    df = pd.read_csv('monthly_payroll_totals.csv')
-    df = df.sort_values(by=['payYear', 'payMonth']).reset_index(drop=True)
-    
-    # The last available month is the input for the next month forecast
-    last_month_data = df.iloc[-1:]
-    
-    # Determine the next month
-    last_year = int(last_month_data['payYear'].iloc[0])
-    last_month = int(last_month_data['payMonth'].iloc[0])
-    
-    next_month = last_month + 1
-    next_year = last_year
-    if next_month > 12:
-        next_month = 1
-        next_year += 1
-        
-    # Prepare features
-    features = ['employee_count', 'total_gross', 'total_deductions', 'total_net', 
-                'total_lwp', 'average_attendance', 'total_performance', 'total_festival_bonus']
-    
-    X_pred = last_month_data[features].copy()
-    X_pred.columns = [f'{feat}_lag1' for feat in features]
-    
-    # Predict using RF
-    rf_pred = float(model.predict(X_pred)[0])
-    
-    # Predict using Baseline (Naive)
-    baseline_pred = float(last_month_data['total_net'].iloc[0])
-    
-    # Based on evaluation, Baseline is more accurate due to limited data
-    # We will return the baseline prediction as the preferred one
-    change_amount = baseline_pred - float(last_month_data['total_net'].iloc[0])
-    change_pct = 0.0 # Naive forecast implies no change
-    
-    return {
-        "predictionMonth": next_month,
-        "predictionYear": next_year,
-        "predictedNetPayroll": baseline_pred,
-        "previousMonthNetPayroll": float(last_month_data['total_net'].iloc[0]),
-        "changeAmount": change_amount,
-        "changePercentage": change_pct,
-        "modelUsed": "Naive Baseline",
-        "forecastDisclaimer": "These are prototype estimates based on very limited historical data. Baseline is preferred over Random Forest due to overfitting on small sample size."
-    }
 
 def main():
     res = get_prediction()
     if "error" in res:
         print("Error:", res["error"])
-    else:
-        print(f"Forecasting for: {res['predictionMonth']}/{res['predictionYear']}")
-        print(f"Based on actual data from previous month.")
-        print("\n--- Next Month Forecast (Prototype Estimates) ---")
-        print(f"Preferred Forecast ({res['modelUsed']}): {res['predictedNetPayroll']:.2f}")
-        print(f"\nNote: {res['forecastDisclaimer']}")
+        return
+        
+    print(f"=== Forecast for: {res['predictionMonth']}/{res['predictionYear']} ===")
+    print(f"Model: {res['modelUsed']}")
+    print(f"Previous Month Actual Net: Rs. {res['previousMonthNetPayroll']:,.2f}")
+    print(f"Base Predicted Net:        Rs. {res['basePredictedNetPayroll']:,.2f}")
+    if res.get('festivalAdjustment', 0) > 0:
+        print(f"Festival Adjustment ({res.get('festivalName')}): +Rs. {res['festivalAdjustment']:,.2f}")
+    print(f"Final Predicted Net:       Rs. {res['predictedNetPayroll']:,.2f}")
+    print(f"Change:                    Rs. {res['changeAmount']:+,.2f} ({res['changePercentage']:+.2f}%)")
+    print(f"\n--- Key Forecast Factors ---")
+    print(f"Expected Staff Count:     {res['expectedEmployeeCount']}")
+    print(f"Avg LWP Days / Employee:  {res['estimatedAverageLwp']:.2f} days")
+    print(f"Estimated LWP Deductions: Rs. {res['estimatedLwpDeductions']:,.2f}")
+    print(f"Expected Performance:     Rs. {res['expectedPerformanceIncentives']:,.2f}")
+    print(f"\nAssumptions:")
+    for a in res.get('forecastAssumptions', []):
+        print(f" - {a}")
 
 if __name__ == '__main__':
     main()

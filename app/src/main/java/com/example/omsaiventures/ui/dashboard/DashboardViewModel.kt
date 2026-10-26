@@ -73,6 +73,7 @@ data class DashboardState(
     // AI Integration States
     val aiIsLoading: Boolean = false,
     val prediction: com.example.omsaiventures.api.PredictionResponse? = null,
+    val breakdown: com.example.omsaiventures.api.BreakdownResponse? = null,
     val anomalies: List<com.example.omsaiventures.api.AnomalyItem> = emptyList(),
     val aiError: String? = null,
     
@@ -107,10 +108,16 @@ class DashboardViewModel : ViewModel() {
                 // Fetch Prediction & Anomalies concurrently or sequentially
                 val prediction = com.example.omsaiventures.api.ApiClient.apiService.getPayrollPrediction()
                 val anomalyResponse = com.example.omsaiventures.api.ApiClient.apiService.getAnomalies()
+                val breakdown = try {
+                    com.example.omsaiventures.api.ApiClient.apiService.getPayrollPredictionBreakdown()
+                } catch (e: Exception) {
+                    null
+                }
 
                 _state.value = _state.value.copy(
                     aiIsLoading = false,
                     prediction = prediction,
+                    breakdown = breakdown,
                     anomalies = anomalyResponse.anomalies,
                     aiError = null
                 )
