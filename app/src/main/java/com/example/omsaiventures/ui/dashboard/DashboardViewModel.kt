@@ -67,7 +67,7 @@ data class DashboardState(
     val employees: List<Employee> = emptyList(),
     val historicalSlips: List<SalarySlip> = emptyList(),
     val activeEmployeeId: String? = null,
-    val activeTab: String = "payroll", // "payroll", "offerLetter", "history"
+    val activeTab: String = "dashboard", // "dashboard", "payroll", "offerLetter", "history"
     val error: String? = null,
     
     // AI Integration States

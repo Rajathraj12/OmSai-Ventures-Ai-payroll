@@ -65,20 +65,22 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         androidx.compose.foundation.Image(
                             painter = androidx.compose.ui.res.painterResource(id = com.example.omsaiventures.R.drawable.logo),
                             contentDescription = "Logo",
                             modifier = Modifier
                                 .size(32.dp)
-                                .clip(RoundedCornerShape(4.dp))
+                                .clip(RoundedCornerShape(6.dp))
                                 .background(Color.White)
                                 .padding(2.dp),
                             contentScale = androidx.compose.ui.layout.ContentScale.Fit
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("OmSai", color = Color.White, fontWeight = FontWeight.Bold)
-                        Text("Ventures", color = Brass, fontStyle = FontStyle.Italic)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text("OmSai", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text("Ventures", color = Brass, fontStyle = FontStyle.Italic, fontSize = 18.sp)
                     }
                 },
                 actions = {
@@ -86,11 +88,15 @@ fun DashboardScreen(viewModel: DashboardViewModel) {
                         Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Logout", tint = Color.White)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = LedgerDark)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = LedgerDark),
+                windowInsets = WindowInsets(0, 0, 0, 0)
             )
         },
         bottomBar = {
-            NavigationBar(containerColor = Color.White) {
+            NavigationBar(
+                containerColor = Color.White,
+                windowInsets = WindowInsets(0, 0, 0, 0)
+            ) {
                 NavigationBarItem(
                     selected = state.activeTab == "dashboard",
                     onClick = { viewModel.setActiveTab("dashboard") },
