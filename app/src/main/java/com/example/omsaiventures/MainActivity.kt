@@ -1,78 +1,73 @@
-package com.example.omsaiventures
+﻿package com.example.omsaiventures
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.omsaiventures.ui.theme.OmSaiVenturesTheme
-
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.omsaiventures.ui.login.LoginScreen
-import com.example.omsaiventures.ui.login.LoginViewModel
-
 import com.example.omsaiventures.ui.dashboard.DashboardScreen
 import com.example.omsaiventures.ui.dashboard.DashboardViewModel
+import com.example.omsaiventures.ui.login.LoginScreen
+import com.example.omsaiventures.ui.login.LoginViewModel
+import com.example.omsaiventures.ui.splash.SplashScreen
+import com.example.omsaiventures.ui.theme.OmSaiVenturesTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        
-        // --- DATA MANAGEMENT ---
-        // Uncomment below to add mock data:
-        // com.example.omsaiventures.utils.FirebaseSeeder.seedData()
-        
+
+        val sharedPrefs = getSharedPreferences("om_sai_auth", MODE_PRIVATE)
+        val isAlreadyLoggedIn = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null ||
+                sharedPrefs.getBoolean("is_logged_in", false)
+
         setContent {
             OmSaiVenturesTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    // Set up basic Navigation state (for demonstration)
-                    var currentScreen by androidx.compose.runtime.remember { 
-                        // Bypass login for testing: start on "home" instead of "login"
-                        androidx.compose.runtime.mutableStateOf("home") 
+                    // splash -> login -> home
+                    var currentScreen by remember {
+                        mutableStateOf("splash")
                     }
 
-                    if (currentScreen == "login") {
-                        val loginViewModel: LoginViewModel = viewModel()
-                        LoginScreen(
-                            viewModel = loginViewModel,
-                            onLoginSuccess = {
-                                currentScreen = "home"
+                    when (currentScreen) {
+                        "splash" -> {
+                            SplashScreen(onFinished = {
+                                currentScreen = if (isAlreadyLoggedIn) "home" else "login"
+                            })
+                        }
+                        "login" -> {
+                            val loginViewModel: LoginViewModel = viewModel()
+                            LoginScreen(
+                                viewModel = loginViewModel,
+                                onLoginSuccess = {
+                                    sharedPrefs.edit().putBoolean("is_logged_in", true).apply()
+                                    currentScreen = "home"
+                                }
+                            )
+                        }
+                        "home" -> {
+                            val dashboardViewModel: DashboardViewModel = viewModel()
+                            Box(modifier = Modifier.padding(innerPadding)) {
+                                DashboardScreen(
+                                    viewModel = dashboardViewModel,
+                                    onLogout = {
+                                        try { com.google.firebase.auth.FirebaseAuth.getInstance().signOut() }
+                                        catch (_: Exception) {}
+                                        sharedPrefs.edit().clear().apply()
+                                        currentScreen = "login"
+                                    }
+                                )
                             }
-                        )
-                    } else {
-                        val dashboardViewModel: DashboardViewModel = viewModel()
-                        Box(modifier = Modifier.padding(innerPadding)) {
-                            DashboardScreen(viewModel = dashboardViewModel)
                         }
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    OmSaiVenturesTheme {
-        Greeting("Android")
     }
 }
